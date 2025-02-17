@@ -10,6 +10,7 @@ def put_file(cmd):
         print("Error: Please provide a file path.")
         return
     
+    # read file in directory
     file_path = cmd[1]
     if not os.path.isfile(file_path):
         print("Error: File does not exist.")
@@ -34,7 +35,33 @@ def put_file(cmd):
             print(f"Error: {response_data.get('message', 'Unknown error')}")
     except json.JSONDecodeError:
         print("Error: Invalid server response")
+        
+# ========================================================================================================
+def view_files():
+    response = requests.get(
+        API_GATEWAY_URL,
+        headers={"Content-Type": "application/json"},
+        json={"action": "view"}
+    )
 
+    try:
+        response_data = response.json()
+        if response.status_code == 200:
+            files = response_data.get("files", [])
+            # no files
+            if not files:
+                print("No files found.")
+                return
+            
+            # loop and print metadata
+            for file in files:
+                print(f"{file.get('file_name')} {file.get('size')} bytes {file.get('last_modified')} {file.get('owner')}")
+        else:
+            print(f"Error: {response_data.get('message', 'Unknown error')}")
+    except json.JSONDecodeError:
+        print("Error: Invalid server response")
+
+# ========================================================================================================
 def main():
     print("Welcome to myDropbox Application")
     print("======================================================")
@@ -52,6 +79,8 @@ def main():
         match cmd:
             case "put":
                 put_file(command)
+            case "view":
+                view_files()
             case "quit":
                 print("======================================================")
                 break
