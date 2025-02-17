@@ -32,7 +32,7 @@ def put_file(cmd):
         if response.status_code == 200 :
             print("OK")
         else:
-            print(f"Error: {response_data.get('message', 'Unknown error')}")
+            print(f"Error: {response_data.get('message')}")
     except json.JSONDecodeError:
         print("Error: Invalid server response")
         
@@ -57,9 +57,37 @@ def view_files():
             for file in files:
                 print(f"{file.get('file_name')} {file.get('size')} bytes {file.get('last_modified')} {file.get('owner')}")
         else:
-            print(f"Error: {response_data.get('message', 'Unknown error')}")
+            print(f"Error: {response_data.get('message')}")
     except json.JSONDecodeError:
         print("Error: Invalid server response")
+
+# ========================================================================================================
+def get_file(cmd):
+    if len(cmd) < 2:
+        print("Error: Please provide a file name.")
+        return
+    
+    file_name = cmd[1]
+
+    response = requests.get(
+        API_GATEWAY_URL,
+        headers={"Content-Type": "application/json"},
+        json={"action": "get", "file_name": file_name},
+        stream=True 
+    )
+
+    if response.status_code == 200:
+        with open(file_name, "wb") as file:
+            for chunk in response.iter_content(chunk_size=8192): 
+                file.write(chunk)
+
+        print(f"Download complete: {file_name}")
+    else:
+        try:
+            error_message = response.json().get("message")
+        except requests.JSONDecodeError:
+            error_message = "Invalid server response"
+        print(f"Error: {error_message}")
 
 # ========================================================================================================
 def main():
@@ -81,6 +109,8 @@ def main():
                 put_file(command)
             case "view":
                 view_files()
+            case "get":
+                get_file(command)
             case "quit":
                 print("======================================================")
                 break

@@ -10,7 +10,8 @@ DEFAULT_USERNAME = "act4_default_user"
 
 def upload_json_to_s3(key, data):
     s3.put_object(Bucket=S3_BUCKET, Key=key, Body=json.dumps(data))
-
+    
+# ========================================================================================================
 def put_file(event):
     file_name = event.get("file_name")
     file_content = event.get("file_content")
@@ -24,8 +25,10 @@ def put_file(event):
     file_key = f"files/{DEFAULT_USERNAME}/{file_name}"
 
     try:
+        # write file
         s3.put_object(Bucket=S3_BUCKET, Key=file_key, Body=file_content)
 
+        # write metadata
         metadata_key = f"metadata/{DEFAULT_USERNAME}/{file_name}.json"
         metadata = {
             "file_name": file_name,
@@ -45,7 +48,7 @@ def put_file(event):
             "body": json.dumps({"message": str(e)})
         }
 
-
+# ========================================================================================================
 def view_files():
     try:
         response = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=f"metadata/{DEFAULT_USERNAME}/")
@@ -67,7 +70,43 @@ def view_files():
             "statusCode": 500,
             "body": json.dumps({"message": str(e)}) 
         }
+        
+# ========================================================================================================
+def get_file(event):
+    file_name = event.get("file_name")
 
+    if not file_name:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"message": "Missing file_name"})
+        }
+
+    file_key = f"files/{DEFAULT_USERNAME}/{file_name}"
+
+    try:
+        # get metadata
+        response = s3.head_object(Bucket=S3_BUCKET, Key=file_key)
+        content_type = response.get("ContentType", "application/octet-stream")
+
+        # get file
+        file_response = s3.get_object(Bucket=S3_BUCKET, Key=file_key)
+
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": content_type, 
+                "Content-Disposition": f'attachment; filename="{file_name}"'
+            },
+            "body": file_response["Body"].read(),
+            "isBase64Encoded": True 
+        }
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"message": str(e)})
+        }
+
+# ========================================================================================================
 def lambda_handler(event, context):
     try:
         body = json.loads(event.get("body", "{}"))
@@ -78,6 +117,8 @@ def lambda_handler(event, context):
                 return view_files()
             case "put":
                 return put_file(body)
+            case "get":
+                return get_file(body)
             case _:
                 return {
                     "statusCode": 400,
